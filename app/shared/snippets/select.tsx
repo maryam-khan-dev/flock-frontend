@@ -13,13 +13,15 @@ export const SelectTrigger = React.forwardRef<
   HTMLButtonElement,
   SelectTriggerProps
 >(function SelectTrigger(props, ref) {
-  const { children, clearable, ...rest } = props;
+  const { children, clearable, bg, color, ...rest } = props;
   return (
     <ChakraSelect.Control {...rest}>
-      <ChakraSelect.Trigger ref={ref}>{children}</ChakraSelect.Trigger>
+      <ChakraSelect.Trigger bg={bg} color={color} ref={ref}>
+        {children}
+      </ChakraSelect.Trigger>
       <ChakraSelect.IndicatorGroup>
-        {clearable && <SelectClearTrigger />}
-        <ChakraSelect.Indicator />
+        {clearable && <SelectClearTrigger color={color} />}
+        <ChakraSelect.Indicator color={color} />
       </ChakraSelect.IndicatorGroup>
     </ChakraSelect.Control>
   );

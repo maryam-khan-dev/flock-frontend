@@ -4,32 +4,30 @@ import {
   IconButton,
   VStack,
   HStack,
-  Stack,
   Button,
-  Textarea,
   Alert,
 } from "@chakra-ui/react";
-import { useGroup, useGroupDispatch, useGroupState } from "./group-context";
-import ProfileHeader from "../profile/shared/profile-header";
-import { LuImage, LuSparkle, LuX } from "react-icons/lu";
-import debounce from "debounce";
-import { Avatar } from "@/app/shared/snippets/avatar";
-import { ringCss } from "@/theme";
-import {
-  FileUploadList,
-  FileUploadRoot,
-  FileUploadTrigger,
-} from "@/app/shared/snippets/file-upload";
+import { LuX } from "react-icons/lu";
 import { toaster } from "@/app/shared/snippets/toaster";
-import InputItem from "@/app/shared/input-item";
-import InputIcon from "@/app/profile/shared/input-icon";
 import { saveGroup } from "@/app/actions/group";
 import { useSession } from "next-auth/react";
-import { useGroups } from "@/app/swr/group";
+import { useSelfGroups } from "@/app/swr/group";
 import { Skeleton } from "@/app/shared/snippets/skeleton";
+import {
+  MIN_DESCRIPTION_LENGTH,
+  MIN_NAME_LENGTH,
+} from "../shared/constants/errors";
+import {
+  type NewGroup,
+  useGroup,
+  useGroupDispatch,
+} from "../shared/group-context";
+import ProfileHeader from "../../profile/shared/profile-header";
+import { GROUP_STATUSES } from "../../groups/constants";
+import GeneralDetails from "../shared/general-details";
 
-export function GroupMembers() {
-  const { members } = useGroup();
+function GroupMembers() {
+  const { members } = useGroup() as NewGroup;
   const dispatch = useGroupDispatch();
   return (
     <VStack h="full" alignItems="start" w="full" gapY={3}>
@@ -69,106 +67,28 @@ export function GroupMembers() {
     </VStack>
   );
 }
-export function GeneralDetails() {
-  const { name, description } = useGroup();
-  const dispatch = useGroupDispatch();
-  const debouncedNameUpdate = debounce((dispatch, newName) => {
-    dispatch({
-      type: "updateDetails",
-      payload: { name: newName.trim() },
-    });
-  }, 300);
-  const debouncedDescriptionUpdate = debounce((dispatch, newDescription) => {
-    dispatch({
-      type: "updateDetails",
-      payload: { description: newDescription.trim() },
-    });
-  }, 300);
-  return (
-    <VStack h="full" alignItems="start" w="full" gapY={5}>
-      <Heading fontSize="lg">general details</Heading>
-      <Stack
-        justifyContent={"center"}
-        alignItems="center"
-        w="full"
-        flexDirection={{ base: "column", md: "row" }}
-        gap={4}
-        bg="accent.muted/50"
-        p={3}
-        rounded="md"
-      >
-        <Avatar
-          name={name ?? "new group"}
-          bgGradient="to-tr"
-          gradientFrom={{ _dark: "green.600", _light: "green.400" }}
-          gradientTo={{ _dark: "yellow.600", _light: "yellow.400" }}
-          gradientVia={{ _dark: "pink.600", _light: "pink.300" }}
-          css={ringCss}
-          aspectRatio={"square"}
-          boxShadow={"xs"}
-          h="5em"
-          w="5em"
-        />
-        <FileUploadRoot
-          w="min-content"
-          accept={["image/png", "image/jpeg"]}
-          maxFileSize={20_000}
-          onFileReject={() => {
-            toaster.create({
-              type: "error",
-              title:
-                "Please upload a PNG or JPEG file that is no bigger than 20MB.",
-            });
-          }}
-        >
-          <FileUploadTrigger asChild>
-            <Button variant="surface" colorPalette="accent">
-              <LuImage /> Upload a new group picture
-            </Button>
-          </FileUploadTrigger>
-          <FileUploadList />
-        </FileUploadRoot>
-      </Stack>
-      <InputItem
-        label="name"
-        placeholder="What's your group going to be called?"
-        defaultValue={name}
-        onChange={(e) => {
-          debouncedNameUpdate(dispatch, e.target.value);
-        }}
-        endAddon={
-          <InputIcon
-            tooltip={"A group name is required before you send invites."}
-            icon={<LuSparkle />}
-          />
-        }
-      />
-      <InputItem label="description">
-        <Textarea
-          placeholder="What's the group about?"
-          aria-label="What's the group about?"
-          rounded="md"
-          borderWidth={0}
-          minH="3em"
-          defaultValue={description}
-          rows={5}
-          onChange={(e) => {
-            debouncedDescriptionUpdate(dispatch, e.target.value);
-          }}
-        />
-      </InputItem>
-    </VStack>
-  );
-}
+
 function GroupActions() {
   const dispatch = useGroupDispatch();
-  const { valid } = useGroupState();
-  const group = useGroup();
+  const group = useGroup() as NewGroup;
   const { data: session, status } = useSession();
-  const { mutate } = useGroups(session?.accessToken);
+  const { mutate } = useSelfGroups(
+    session?.accessToken,
+    GROUP_STATUSES.PENDING
+  );
   async function save() {
+    if (group.description.length < MIN_DESCRIPTION_LENGTH) {
+      dispatch({ type: "setError", payload: "DESCRIPTION_TOO_SHORT" });
+    } else if (group.name.length < MIN_NAME_LENGTH)
+      dispatch({ type: "setError", payload: "NAME_TOO_SHORT" });
+    else {
+      await finalize();
+    }
+  }
+  async function finalize() {
     const loadingToast = toaster.loading({
       title: "Sending invites...",
+      description: "This usually takes us a while.",
     });
     const response = await saveGroup(group);
     toaster.dismiss(loadingToast);
@@ -184,13 +104,7 @@ function GroupActions() {
     return <Skeleton w="full" height="3em" bg="accent.muted/50" />;
   return (
     <HStack w="full" gap={10}>
-      <Button
-        variant="surface"
-        disabled={!valid}
-        flex={1}
-        colorPalette={"accent"}
-        onClick={save}
-      >
+      <Button variant="surface" flex={1} colorPalette={"accent"} onClick={save}>
         Send Invites
       </Button>
       <Button
@@ -225,7 +139,7 @@ export default function GroupCreation() {
               </Drawer.CloseTrigger>
             </HStack>
             <Alert.Root status="success" justifyContent={"center"}>
-              <Alert.Title textAlign={"center"} color="accent.fg">
+              <Alert.Title textAlign={"center"}>
                 💡 Once you click &apos;Send Invites&apos;, all your
                 group&apos;s members will get an invite through email. They can
                 accept or reject the invite within 48 hours.

@@ -1,6 +1,6 @@
 import { MenuContent, MenuItem } from "@/app/shared/snippets/menu";
 import { HStack, Portal, Text, useMenuContext } from "@chakra-ui/react";
-import { useGroupDispatch } from "../group/group-context";
+import { useGroupDispatch } from "../group/shared/group-context";
 import { type Profile } from "@/app/swr/profile";
 
 export default function ProfileMenu({ profile }: { profile: Profile }) {
@@ -19,7 +19,7 @@ export default function ProfileMenu({ profile }: { profile: Profile }) {
           }}
         >
           <HStack w="100%" gap={5} justifyContent={"space-between"}>
-            <Text>Add to group</Text>
+            <Text>Add to new group</Text>
             <Text>👥</Text>
           </HStack>
         </MenuItem>
